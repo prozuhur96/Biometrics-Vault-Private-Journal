@@ -1,10 +1,10 @@
+import 'dart:async';
 import 'package:flutter/services.dart';
 import 'package:local_auth/local_auth.dart';
 
 class BiometricService {
   final LocalAuthentication _auth = LocalAuthentication();
 
-  // Check if hardware supports biometrics and if biometrics are enrolled
   Future<bool> canCheckBiometrics() async {
     try {
       final bool canAuthenticateWithBiometrics = await _auth.canCheckBiometrics;
@@ -15,13 +15,20 @@ class BiometricService {
     }
   }
 
-  // Trigger the biometric hardware prompt
   Future<bool> authenticate() async {
     try {
-      return await _auth.authenticate(
-        localizedReason: 'Scan your biometric to access your private vault',
-      );
+      // Add a 2-second timeout so web/desktop browsers don't hang indefinitely
+      return await _auth
+          .authenticate(
+            localizedReason: 'Scan your biometric to access your private vault',
+          )
+          .timeout(
+            const Duration(seconds: 2),
+            onTimeout: () => false,
+          );
     } on PlatformException {
+      return false;
+    } catch (_) {
       return false;
     }
   }

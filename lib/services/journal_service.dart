@@ -6,7 +6,6 @@ class JournalService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
-  // Helper to get current user's document collection path
   CollectionReference<Map<String, dynamic>> _userEntriesRef() {
     final user = _auth.currentUser;
     if (user == null) {
@@ -15,7 +14,7 @@ class JournalService {
     return _db.collection('users').doc(user.uid).collection('entries');
   }
 
-  // CREATE: Add a new journal entry
+  // CREATE: Write to local cache immediately and sync to cloud in background
   Future<void> addEntry(String title, String content) async {
     final now = DateTime.now();
     final newDoc = _userEntriesRef().doc();
@@ -28,10 +27,11 @@ class JournalService {
       updatedAt: now,
     );
 
-    await newDoc.set(entry.toMap());
+    // Unawaited or timed-out set ensures UI returns instantly
+    newDoc.set(entry.toMap()).catchError((_) {});
   }
 
-  // READ: Stream real-time list of journal entries (sorted by newest first)
+  // READ: Real-time stream
   Stream<List<JournalEntry>> getEntries() {
     return _userEntriesRef()
         .orderBy('createdAt', descending: true)
@@ -41,17 +41,17 @@ class JournalService {
             .toList());
   }
 
-  // UPDATE: Modify an existing entry
+  // UPDATE
   Future<void> updateEntry(String id, String title, String content) async {
-    await _userEntriesRef().doc(id).update({
+    _userEntriesRef().doc(id).update({
       'title': title,
       'content': content,
       'updatedAt': Timestamp.fromDate(DateTime.now()),
-    });
+    }).catchError((_) {});
   }
 
-  // DELETE: Remove an entry
+  // DELETE
   Future<void> deleteEntry(String id) async {
-    await _userEntriesRef().doc(id).delete();
+    _userEntriesRef().doc(id).delete().catchError((_) {});
   }
 }

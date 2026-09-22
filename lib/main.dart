@@ -5,6 +5,7 @@ import 'firebase_options.dart';
 import 'services/auth_service.dart';
 import 'screens/login_screen.dart';
 import 'screens/biometric_lock_screen.dart';
+import 'screens/journal_home_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -41,34 +42,18 @@ class AuthWrapper extends StatelessWidget {
     return StreamBuilder<User?>(
       stream: authService.authStateChanges,
       builder: (context, snapshot) {
-        // Show loading indicator while Firebase resolves auth state
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Scaffold(
             body: Center(child: CircularProgressIndicator()),
           );
         }
 
-        // If user is logged in, pass the main app into BiometricLockScreen
         if (snapshot.hasData) {
-          return BiometricLockScreen(
-            child: Scaffold(
-              appBar: AppBar(
-                title: const Text('My Private Journal'),
-                actions: [
-                  IconButton(
-                    icon: const Icon(Icons.logout),
-                    onPressed: () => authService.signOut(),
-                  ),
-                ],
-              ),
-              body: const Center(
-                child: Text('Welcome to your Private Vault!'),
-              ),
-            ),
+          return const BiometricLockScreen(
+            child: JournalHomeScreen(),
           );
         }
 
-        // If user is logged out, show LoginScreen
         return const LoginScreen();
       },
     );
