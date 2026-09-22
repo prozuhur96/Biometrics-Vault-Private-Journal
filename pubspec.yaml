@@ -33,11 +33,11 @@ dependencies:
 
   # Firebase core and Auth
   firebase_core: ^3.12.1
-  firebase_auth: ^5.5.1
+  firebase_auth: ^5.7.0
   google_sign_in: ^6.2.2
 
   # Biometric Authentication
-  local_auth: ^2.3.0
+  local_auth: ^3.0.2
 
   # UI Helpers
   flutter_staggered_grid_view: ^0.7.0
