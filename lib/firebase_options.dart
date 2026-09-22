@@ -20,13 +20,13 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'PASTE_WEB_API_KEY_HERE',
-    appId: 'PASTE_WEB_APP_ID_HERE',
-    messagingSenderId: 'PASTE_SENDER_ID_HERE',
-    projectId: 'PASTE_PROJECT_ID_HERE',
-    authDomain: 'PASTE_PROJECT_ID_HERE.firebaseapp.com',
-    storageBucket: 'PASTE_PROJECT_ID_HERE.appspot.com',
-  );
+  apiKey: "AIzaSyBAJlLUSckYqSsZzVcsrlaNqCAoyb_hjPY",
+  appId: '1:594649230352:web:0e79810a48733d09bf6e95',
+  messagingSenderId: '...',
+  projectId: '...',
+  authDomain: '...',
+  storageBucket: '...',
+);
 
   static const FirebaseOptions android = FirebaseOptions(
     apiKey: 'PASTE_ANDROID_API_KEY_HERE',
