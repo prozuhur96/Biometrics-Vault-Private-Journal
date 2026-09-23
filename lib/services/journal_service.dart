@@ -1,70 +1,127 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/material.dart';
+
 import '../models/journal_entry.dart';
-import 'encryption_service.dart';
 
 class JournalService {
-  final FirebaseFirestore _db = FirebaseFirestore.instance;
-  final FirebaseAuth _auth = FirebaseAuth.instance;
+  final FirebaseFirestore _db =
+      FirebaseFirestore.instance;
 
-  CollectionReference<Map<String, dynamic>> _userEntriesRef() {
+  final FirebaseAuth _auth =
+      FirebaseAuth.instance;
+
+  CollectionReference<Map<String, dynamic>>
+      _userEntriesCollection() {
     final user = _auth.currentUser;
+
     if (user == null) {
-      throw Exception("User must be logged in to access journal entries.");
+      throw Exception(
+        'No authenticated user found. Please log in again.',
+      );
     }
-    return _db.collection('users').doc(user.uid).collection('entries');
+
+    return _db
+        .collection('users')
+        .doc(user.uid)
+        .collection('entries');
   }
 
-  // CREATE: Encrypt title & content before writing
-  Future<void> addEntry(String title, String content) async {
-    final now = DateTime.now();
-    final newDoc = _userEntriesRef().doc();
-
-    final encryptedTitle = EncryptionService.encryptText(title);
-    final encryptedContent = EncryptionService.encryptText(content);
-
-    final entry = JournalEntry(
-      id: newDoc.id,
-      title: encryptedTitle,
-      content: encryptedContent,
-      createdAt: now,
-      updatedAt: now,
-    );
-
-    newDoc.set(entry.toMap()).catchError((_) {});
-  }
-
-  // READ: Stream and decrypt entries automatically
   Stream<List<JournalEntry>> getEntries() {
-    return _userEntriesRef()
-        .orderBy('createdAt', descending: true)
+    return _userEntriesCollection()
+        .orderBy(
+          'updatedAt',
+          descending: true,
+        )
         .snapshots()
-        .map((snapshot) => snapshot.docs.map((doc) {
-              final rawEntry = JournalEntry.fromMap(doc.id, doc.data());
-              return JournalEntry(
-                id: rawEntry.id,
-                title: EncryptionService.decryptText(rawEntry.title),
-                content: EncryptionService.decryptText(rawEntry.content),
-                createdAt: rawEntry.createdAt,
-                updatedAt: rawEntry.updatedAt,
-              );
-            }).toList());
+        .map((snapshot) {
+      return snapshot.docs
+          .map(
+            (doc) => JournalEntry.fromMap(
+              doc.id,
+              doc.data(),
+            ),
+          )
+          .toList();
+    });
   }
 
-  // UPDATE: Encrypt updated title & content
-  Future<void> updateEntry(String id, String title, String content) async {
-    final encryptedTitle = EncryptionService.encryptText(title);
-    final encryptedContent = EncryptionService.encryptText(content);
-
-    _userEntriesRef().doc(id).update({
-      'title': encryptedTitle,
-      'content': encryptedContent,
-      'updatedAt': Timestamp.fromDate(DateTime.now()),
-    }).catchError((_) {});
+  Future<void> addEntry(
+    JournalEntry entry,
+  ) async {
+    await _userEntriesCollection().add(
+      entry.toMap(),
+    );
   }
 
-  // DELETE: Remove entry
-  Future<void> deleteEntry(String id) async {
-    _userEntriesRef().doc(id).delete().catchError((_) {});
+  Future<void> updateEntry(
+    String docId,
+    JournalEntry entry,
+  ) async {
+    if (docId.isEmpty) {
+      throw Exception(
+        'Cannot update entry with empty document ID.',
+      );
+    }
+
+    await _userEntriesCollection()
+        .doc(docId)
+        .update(
+      entry.toMap(),
+    );
+  }
+
+  Future<void> setEntryLock({
+    required String docId,
+    required bool isLocked,
+    String pinHash = '',
+    String pinSalt = '',
+  }) async {
+    if (docId.isEmpty) {
+      throw Exception(
+        'Cannot change lock on an entry with an empty document ID.',
+      );
+    }
+
+    await _userEntriesCollection()
+        .doc(docId)
+        .update({
+      'isLocked': isLocked,
+      'pinHash': isLocked ? pinHash : '',
+      'pinSalt': isLocked ? pinSalt : '',
+      'updatedAt': Timestamp.fromDate(
+        DateTime.now(),
+      ),
+    });
+  }
+
+  Future<void> deleteEntry(
+    String docId,
+  ) async {
+    if (docId.isEmpty) return;
+
+    await _userEntriesCollection()
+        .doc(docId)
+        .delete();
+  }
+
+  bool isSameColor(
+    Color c1,
+    Color c2,
+  ) {
+    return c1.toARGB32() ==
+        c2.toARGB32();
+  }
+
+  BoxShadow getCardShadow(
+    Color color,
+  ) {
+    return BoxShadow(
+      color: color.withValues(
+        alpha: 0.2,
+      ),
+      blurRadius: 4,
+      offset: const Offset(0, 2),
+    );
   }
 }
