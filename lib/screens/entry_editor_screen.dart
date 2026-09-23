@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/journal_entry.dart';
 import '../services/journal_service.dart';
+import 'dart:async';
 
 class EntryEditorScreen extends StatefulWidget {
   final JournalEntry? entry;
@@ -12,18 +13,25 @@ class EntryEditorScreen extends StatefulWidget {
 }
 
 class _EntryEditorScreenState extends State<EntryEditorScreen> {
-  final _titleController = TextEditingController();
-  final _contentController = TextEditingController();
-  final _journalService = JournalService();
-  bool _isLoading = false;
+  final _formKey = GlobalKey<FormState>();
+  final JournalService _journalService = JournalService();
+
+  late TextEditingController _titleController;
+  late TextEditingController _contentController;
+
+  bool _isSaving = false;
 
   @override
   void initState() {
     super.initState();
-    if (widget.entry != null) {
-      _titleController.text = widget.entry!.title;
-      _contentController.text = widget.entry!.content;
-    }
+
+    _titleController = TextEditingController(
+      text: widget.entry?.title ?? '',
+    );
+
+    _contentController = TextEditingController(
+      text: widget.entry?.content ?? '',
+    );
   }
 
   @override
@@ -34,84 +42,158 @@ class _EntryEditorScreenState extends State<EntryEditorScreen> {
   }
 
   Future<void> _saveEntry() async {
-    final title = _titleController.text.trim();
-    final content = _contentController.text.trim();
-
-    if (title.isEmpty && content.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter a title or content.')),
-      );
+    if (!_formKey.currentState!.validate()) {
       return;
     }
 
-    setState(() => _isLoading = true);
+    setState(() {
+      _isSaving = true;
+    });
 
     try {
       if (widget.entry == null) {
-        await _journalService.addEntry(title, content);
+        final newEntry = JournalEntry(
+          id: '',
+          title: _titleController.text.trim(),
+          content: _contentController.text.trim(),
+          createdAt: DateTime.now(),
+          updatedAt: DateTime.now(),
+        );
+
+        await _journalService.addEntry(newEntry).timeout(
+          const Duration(seconds: 2),
+        );
       } else {
-        await _journalService.updateEntry(widget.entry!.id, title, content);
+        final updatedEntry = JournalEntry(
+          id: widget.entry!.id,
+          title: _titleController.text.trim(),
+          content: _contentController.text.trim(),
+          createdAt: widget.entry!.createdAt,
+          updatedAt: DateTime.now(),
+        );
+
+        await _journalService.updateEntry(
+          widget.entry!.id,
+          updatedEntry,
+        ).timeout(
+          const Duration(seconds: 2),
+        );
       }
 
-      // Pop the screen immediately upon success
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Entry saved successfully'),
+          backgroundColor: Colors.green,
+        ),
+      );
+
+      Navigator.pop(context);
+    } on TimeoutException {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Saving took too long. Please check your Firebase connection.',
+          ),
+          backgroundColor: Colors.red,
+          duration: Duration(seconds: 5),
+        ),
+      );
+    } catch (e, stackTrace) {
+      debugPrint('SAVE ERROR: $e');
+      debugPrint('STACK TRACE: $stackTrace');
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error saving: $e'),
+          backgroundColor: Colors.red,
+          duration: const Duration(seconds: 8),
+        ),
+      );
+    } finally {
       if (mounted) {
-        Navigator.of(context).pop();
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() => _isLoading = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to save entry: $e')),
-        );
+        setState(() {
+          _isSaving = false;
+        });
       }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final isEditing = widget.entry != null;
-
     return Scaffold(
       appBar: AppBar(
-        title: Text(isEditing ? 'Edit Entry' : 'New Journal Entry'),
+        title: Text(
+          widget.entry == null
+              ? 'New Journal Entry'
+              : 'Edit Entry',
+        ),
         actions: [
           IconButton(
-            icon: _isLoading
+            icon: _isSaving
                 ? const SizedBox(
                     width: 20,
                     height: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2),
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                    ),
                   )
-                : const Icon(Icons.check),
-            onPressed: _isLoading ? null : _saveEntry,
+                : const Icon(Icons.save),
+            onPressed: _isSaving ? null : _saveEntry,
+            tooltip: 'Save Entry',
           ),
         ],
       ),
       body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          children: [
-            TextField(
-              controller: _titleController,
-              decoration: const InputDecoration(
-                hintText: 'Title',
-                border: InputBorder.none,
-              ),
-              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-            ),
-            const Divider(),
-            Expanded(
-              child: TextField(
-                controller: _contentController,
+        padding: const EdgeInsets.all(16),
+        child: Form(
+          key: _formKey,
+          child: Column(
+            children: [
+              TextFormField(
+                controller: _titleController,
                 decoration: const InputDecoration(
-                  hintText: 'Write your thoughts here...',
-                  border: InputBorder.none,
+                  labelText: 'Title',
+                  border: OutlineInputBorder(),
                 ),
-                maxLines: null,
-                keyboardType: TextInputType.multiline,
+                validator: (value) {
+                  if (value == null || value.trim().isEmpty) {
+                    return 'Please enter a title';
+                  }
+
+                  return null;
+                },
               ),
-            ),
-          ],
+
+              const SizedBox(height: 16),
+
+              Expanded(
+                child: TextFormField(
+                  controller: _contentController,
+                  maxLines: null,
+                  expands: true,
+                  textAlignVertical: TextAlignVertical.top,
+                  decoration: const InputDecoration(
+                    labelText: 'Write your private thoughts...',
+                    alignLabelWithHint: true,
+                    border: OutlineInputBorder(),
+                  ),
+                  validator: (value) {
+                    if (value == null || value.trim().isEmpty) {
+                      return 'Entry content cannot be empty';
+                    }
+
+                    return null;
+                  },
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
