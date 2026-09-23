@@ -22,10 +22,10 @@ class DefaultFirebaseOptions {
   static const FirebaseOptions web = FirebaseOptions(
   apiKey: "AIzaSyBAJlLUSckYqSsZzVcsrlaNqCAoyb_hjPY",
   appId: '1:594649230352:web:0e79810a48733d09bf6e95',
-  messagingSenderId: '...',
-  projectId: '...',
-  authDomain: '...',
-  storageBucket: '...',
+  messagingSenderId: '594649230352',
+  projectId: 'yes-wow-project',
+  authDomain: 'yes-wow-project.firebaseapp.com',
+  storageBucket: 'yes-wow-project.firebasestorage.app',
 );
 
   static const FirebaseOptions android = FirebaseOptions(
