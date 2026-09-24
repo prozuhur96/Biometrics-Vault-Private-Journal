@@ -359,3 +359,8 @@ This structure allows journal entries to remain associated with the user account
 GitHub repository:
 
 https://github.com/prozuhur96/My-Private-Journal.git
+
+
+##
+Verification code:
+WTC-DCLB43NB
